@@ -20,10 +20,32 @@ void app_main(void)
 
 static const char *TAG = "TempSensor";
 
-void tempsensor_example(void *arg)
+// void tempsensor_example(void *arg)
+// {
+//     // Initialize touch pad peripheral, it will start a timer to run a filter
+//     ESP_LOGI(TAG, "Initializing Temperature sensor");
+//     float tsens_out;
+//     temp_sensor_config_t temp_sensor = TSENS_CONFIG_DEFAULT();
+//     temp_sensor_get_config(&temp_sensor);
+//     ESP_LOGI(TAG, "default dac %d, clk_div %d", temp_sensor.dac_offset, temp_sensor.clk_div);
+//     temp_sensor.dac_offset = TSENS_DAC_DEFAULT; // DEFAULT: range:-10℃ ~  80℃, error < 1℃.
+//     temp_sensor_set_config(temp_sensor);
+//     temp_sensor_start();
+//     ESP_LOGI(TAG, "Temperature sensor started");
+//     while (1) {
+//         vTaskDelay(1000 / portTICK_RATE_MS);
+//         temp_sensor_read_celsius(&tsens_out);
+//         ESP_LOGI(TAG, "Temperature out celsius %f°C", tsens_out);
+//     }
+//     vTaskDelete(NULL);
+// }
+
+
+#if CONFIG_SENDER
+void task_tx(void *pvParameters)
 {
-    // Initialize touch pad peripheral, it will start a timer to run a filter
-    ESP_LOGI(TAG, "Initializing Temperature sensor");
+	// Initialize touch pad peripheral, it will start a timer to run a filter
+    ESP_LOGI(TAG, "Initializing Temperature sensor....");
     float tsens_out;
     temp_sensor_config_t temp_sensor = TSENS_CONFIG_DEFAULT();
     temp_sensor_get_config(&temp_sensor);
@@ -31,46 +53,21 @@ void tempsensor_example(void *arg)
     temp_sensor.dac_offset = TSENS_DAC_DEFAULT; // DEFAULT: range:-10℃ ~  80℃, error < 1℃.
     temp_sensor_set_config(temp_sensor);
     temp_sensor_start();
-    ESP_LOGI(TAG, "Temperature sensor started");
-    while (1) {
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        temp_sensor_read_celsius(&tsens_out);
-        ESP_LOGI(TAG, "Temperature out celsius %f°C", tsens_out);
-    }
-    vTaskDelete(NULL);
-}
+	ESP_LOGI(TAG, "Temperature sensor started...");
 
-
-#if CONFIG_SENDER
-void task_tx(void *pvParameters)
-{
 	ESP_LOGI(pcTaskGetName(NULL), "Start");
 	uint8_t buf[256]; // Maximum Payload size of SX1276/77/78/79 is 255
 	while(1) {
+		temp_sensor_read_celsius(&tsens_out);
+    	ESP_LOGI(TAG, "Temperature out celsius %f°C", tsens_out);
 		TickType_t nowTick = xTaskGetTickCount();
-		int send_len = sprintf((char *)buf,"Master Gateway %"PRIu32, nowTick);
+		int send_len = sprintf((char *)buf, "%.6f", tsens_out, nowTick);
 		lora_send_packet(buf, send_len);
 		ESP_LOGI(pcTaskGetName(NULL), "%d byte packet sent...", send_len);
-		vTaskDelay(pdMS_TO_TICKS(5000));
+		vTaskDelay(pdMS_TO_TICKS(2000));
 	} // end while
 }
 #endif // CONFIG_SENDER
-
-#if CONFIG_RECEIVER
-void task_rx(void *pvParameters)
-{
-	ESP_LOGI(pcTaskGetName(NULL), "Start");
-	uint8_t buf[256]; // Maximum Payload size of SX1276/77/78/79 is 255
-	while(1) {
-		lora_receive(); // put into receive mode
-		if (lora_received()) {
-			int receive_len = lora_receive_packet(buf, sizeof(buf));
-			ESP_LOGI(pcTaskGetName(NULL), "%d byte packet received:[%.*s]", receive_len, receive_len, buf);
-		} // end if
-		vTaskDelay(1); // Avoid WatchDog alerts
-	} // end while
-}
-#endif // CONFIG_RECEIVER
 
 void app_main()
 {
@@ -130,7 +127,7 @@ void app_main()
 
 #if CONFIG_SENDER
 	xTaskCreate(&task_tx, "task_tx", 1024*3, NULL, 5, NULL);
-	xTaskCreate(tempsensor_example, "temp", 2048, NULL, 5, NULL);
+	// xTaskCreate(tempsensor_example, "temp", 2048, NULL, 5, NULL);
 #endif
 #if CONFIG_RECEIVER
 	xTaskCreate(&task_rx, "task_rx", 1024*3, NULL, 5, NULL);
