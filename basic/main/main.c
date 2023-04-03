@@ -61,7 +61,7 @@ void tempsensor_example(void *arg)
 void task_tx(void *pvParameters)
 {
 	ESP_LOGI(pcTaskGetName(NULL), "Start");
-	uint8_t buf[256]; // Maximum Payload size of SX1276/77/78/79 is 255
+	uint8_t buf[30]; // Maximum Payload size of SX1276/77/78/79 is 255
 	while(1) {
 		TickType_t nowTick = xTaskGetTickCount();
 		vTaskDelay(pdMS_TO_TICKS(1000));
@@ -70,7 +70,7 @@ void task_tx(void *pvParameters)
 			printf("Received data from queue ==== %s\n", buf);
 		}
 
-		lora_send_packet(buf, 256);
+		lora_send_packet(buf, 30);
 
 	} // end while
 }
